@@ -1,0 +1,57 @@
+
+Build and Secure Networks in Google Cloud: Challenge Lab
+
+
+Task 1
+
+
+In the Cloud Console, navigate to Menu > VPC Network > Firewall
+Check the box next to the rule named open-access.
+Click on DELETE to remove it.
+
+
+Task 2
+
+
+In the Cloud Console, navigate to Menu > Compute Engine > VM instances
+Check the box next to the instance named bastion.
+Click on Start to run the instance.
+
+
+
+Task 3
+
+
+gcloud compute firewall-rules create ssh-ingress --allow=tcp:22 --source-ranges 35.235.240.0/20 --target-tags ssh-ingress --network acme-vpc
+
+gcloud compute instances add-tags bastion --tags=ssh-ingress --zone=us-central1-b
+
+Task 4
+
+
+gcloud compute firewall-rules create http-ingress --allow=tcp:80 --source-ranges 0.0.0.0/0 --target-tags http-ingress --network acme-vpc
+
+gcloud compute instances add-tags juice-shop --tags=http-ingress --zone=us-central1-b 
+
+
+Task 5
+
+
+gcloud compute firewall-rules create internal-ssh-ingress --allow=tcp:22 --source-ranges 192.168.10.0/24 --target-tags internal-ssh-ingress --network acme-vpc
+
+gcloud compute instances add-tags juice-shop --tags=internal-ssh-ingress --zone=us-central1-b
+
+
+Task 6
+
+
+SSH to bastion host
+
+Navigate to Compute Engine > VM instances.
+Copy the Internal IP of the juice-shop instance.
+Click on the SSH button in the row of the bastion instance.
+In the SSH console, access the juice-shop from the bastion using the following command:
+
+ssh <internal-IP-of-juice-shop>
+
+Paste the ip address above after ssh
