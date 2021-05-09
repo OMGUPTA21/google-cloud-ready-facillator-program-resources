@@ -1,57 +1,135 @@
+GSP341 : Create ML Models with BigQuery ML: Challenge Lab :-
 
-Build and Secure Networks in Google Cloud: Challenge Lab
+----------------------------------------------------------------------------------------------------------------------------------------------
 
+Task 1: Create a dataset to store your machine learning models :-
 
-Task 1
+In Cloud Shell :-
 
+bq mk austin
 
-In the Cloud Console, navigate to Menu > VPC Network > Firewall
-Check the box next to the rule named open-access.
-Click on DELETE to remove it.
+// Navigation Menu -> BigQuery.
 
+----------------------------------------------------------------------------------------------------------------------------------------------
 
-Task 2
+Task 2: Create a forecasting BigQuery machine learning model :-
 
+// In BigQuery Console Query Editor :-
 
-In the Cloud Console, navigate to Menu > Compute Engine > VM instances
-Check the box next to the instance named bastion.
-Click on Start to run the instance.
+CREATE OR REPLACE MODEL austin.location_model
+OPTIONS
+  (model_type='linear_reg', labels=['duration_minutes']) AS
+SELECT
+    start_station_name,
+    EXTRACT(HOUR FROM start_time) AS start_hour,
+    EXTRACT(DAYOFWEEK FROM start_time) AS day_of_week,
+    duration_minutes,
+FROM
+    `bigquery-public-data.austin_bikeshare.bikeshare_trips` AS trips
+JOIN
+    `bigquery-public-data.austin_bikeshare.bikeshare_stations` AS stations
+ON
+    trips.start_station_name = stations.name
+WHERE
+    EXTRACT(YEAR FROM start_time) = 2018
+    AND duration_minutes > 0
 
+----------------------------------------------------------------------------------------------------------------------------------------------
 
+Task 3: Create the second machine learning model :-
+ 
+// In BigQuery Console Query Editor :-
 
-Task 3
+CREATE OR REPLACE MODEL austin.subscriber_model
+OPTIONS
+  (model_type='linear_reg', labels=['duration_minutes']) AS
+SELECT
+    start_station_name,
+    EXTRACT(HOUR FROM start_time) AS start_hour,
+    subscriber_type,
+    duration_minutes
+FROM `bigquery-public-data.austin_bikeshare.bikeshare_trips` AS trips
+WHERE EXTRACT(YEAR FROM start_time) = 2018
 
+----------------------------------------------------------------------------------------------------------------------------------------------
 
-gcloud compute firewall-rules create ssh-ingress --allow=tcp:22 --source-ranges 35.235.240.0/20 --target-tags ssh-ingress --network acme-vpc
+Task 4: Evaluate the two machine learning models :-
 
-gcloud compute instances add-tags bastion --tags=ssh-ingress --zone=us-central1-b
+// In BigQuery Console Query Editor :-
 
-Task 4
+// Query - 1 :-
 
+-- Evaluation metrics for location_model
+SELECT
+  SQRT(mean_squared_error) AS rmse,
+  mean_absolute_error
+FROM
+  ML.EVALUATE(MODEL austin.location_model, (
+  SELECT
+    start_station_name,
+    EXTRACT(HOUR FROM start_time) AS start_hour,
+    EXTRACT(DAYOFWEEK FROM start_time) AS day_of_week,
+    duration_minutes
+  FROM
+    `bigquery-public-data.austin_bikeshare.bikeshare_trips` AS trips
+  JOIN
+   `bigquery-public-data.austin_bikeshare.bikeshare_stations` AS stations
+  ON
+    trips.start_station_name = stations.name
+  WHERE EXTRACT(YEAR FROM start_time) = 2019)
+)
 
-gcloud compute firewall-rules create http-ingress --allow=tcp:80 --source-ranges 0.0.0.0/0 --target-tags http-ingress --network acme-vpc
+// Query - 2 :-
 
-gcloud compute instances add-tags juice-shop --tags=http-ingress --zone=us-central1-b 
+-- Evaluation metrics for subscriber_model
+SELECT
+  SQRT(mean_squared_error) AS rmse,
+  mean_absolute_error
+FROM
+  ML.EVALUATE(MODEL austin.subscriber_model, (
+  SELECT
+    start_station_name,
+    EXTRACT(HOUR FROM start_time) AS start_hour,
+    subscriber_type,
+    duration_minutes
+  FROM
+    `bigquery-public-data.austin_bikeshare.bikeshare_trips` AS trips
+  WHERE
+    EXTRACT(YEAR FROM start_time) = 2019)
+)
 
+----------------------------------------------------------------------------------------------------------------------------------------------
 
-Task 5
+Task 5: Use the subscriber type machine learning model to predict average trip durations :-
 
+// In BigQuery Console Query Editor :-
 
-gcloud compute firewall-rules create internal-ssh-ingress --allow=tcp:22 --source-ranges 192.168.10.0/24 --target-tags internal-ssh-ingress --network acme-vpc
+// Query - 1 :-
 
-gcloud compute instances add-tags juice-shop --tags=internal-ssh-ingress --zone=us-central1-b
+SELECT
+  start_station_name,
+  COUNT(*) AS trips
+FROM
+  `bigquery-public-data.austin_bikeshare.bikeshare_trips`
+WHERE
+  EXTRACT(YEAR FROM start_time) = 2019
+GROUP BY
+  start_station_name
+ORDER BY
+  trips DESC
 
+// Query - 2 :-
 
-Task 6
-
-
-SSH to bastion host
-
-Navigate to Compute Engine > VM instances.
-Copy the Internal IP of the juice-shop instance.
-Click on the SSH button in the row of the bastion instance.
-In the SSH console, access the juice-shop from the bastion using the following command:
-
-ssh <internal-IP-of-juice-shop>
-
-Paste the ip address above after ssh
+SELECT AVG(predicted_duration_minutes) AS average_predicted_trip_length
+FROM ML.predict(MODEL austin.subscriber_model, (
+SELECT
+    start_station_name,
+    EXTRACT(HOUR FROM start_time) AS start_hour,
+    subscriber_type,
+    duration_minutes
+FROM
+  `bigquery-public-data.austin_bikeshare.bikeshare_trips`
+WHERE 
+  EXTRACT(YEAR FROM start_time) = 2019
+  AND subscriber_type = 'Single Trip'
+  AND start_station_name = '21st & Speedway @PCL'))
